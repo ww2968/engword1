@@ -1,0 +1,560 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>翻牌配對遊戲</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+body {
+  min-height: 100vh;
+  background: linear-gradient(135deg, #0c0c1d 0%, #1a1a3e 50%, #2d1b4e 100%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  font-family: 'Segoe UI', sans-serif;
+  overflow: hidden;
+}
+
+/* 背景粒子 */
+.particles {
+  position: fixed; inset: 0;
+  pointer-events: none;
+  overflow: hidden;
+  z-index: 0;
+}
+.particle {
+  position: absolute;
+  border-radius: 50%;
+  animation: float linear infinite;
+  opacity: 0.3;
+}
+@keyframes float {
+  0% { transform: translateY(100vh) scale(0); opacity: 0; }
+  10% { opacity: 0.4; }
+  90% { opacity: 0.4; }
+  100% { transform: translateY(-10vh) scale(1); opacity: 0; }
+}
+
+/* 標題 */
+h1 {
+  color: #fff;
+  font-size: 2.2rem;
+  margin-bottom: 10px;
+  text-shadow: 0 0 20px rgba(138, 43, 226, 0.8), 0 0 40px rgba(138, 43, 226, 0.4);
+  animation: titleGlow 2s ease-in-out infinite alternate;
+  position: relative; z-index: 1;
+}
+@keyframes titleGlow {
+  from { text-shadow: 0 0 20px rgba(138, 43, 226, 0.8), 0 0 40px rgba(138, 43, 226, 0.4); }
+  to { text-shadow: 0 0 30px rgba(255, 100, 255, 1), 0 0 60px rgba(255, 100, 255, 0.6); }
+}
+
+/* 計分板 */
+.scoreboard {
+  display: flex;
+  gap: 40px;
+  margin-bottom: 20px;
+  position: relative; z-index: 1;
+}
+.stat {
+  background: rgba(255,255,255,0.08);
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(255,255,255,0.15);
+  border-radius: 16px;
+  padding: 12px 28px;
+  text-align: center;
+  min-width: 130px;
+}
+.stat-label {
+  color: rgba(255,255,255,0.6);
+  font-size: 0.85rem;
+  text-transform: uppercase;
+  letter-spacing: 2px;
+  margin-bottom: 4px;
+}
+.stat-value {
+  color: #fff;
+  font-size: 1.8rem;
+  font-weight: 700;
+  text-shadow: 0 0 10px rgba(0,200,255,0.5);
+}
+
+/* 卡片區域 */
+.board {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 14px;
+  padding: 20px;
+  position: relative; z-index: 1;
+  perspective: 1000px;
+}
+
+/* 卡片 */
+.card {
+  width: 130px; height: 160px;
+  cursor: pointer;
+  position: relative;
+  transform-style: preserve-3d;
+  transition: transform 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+}
+.card.flipped { transform: rotateY(180deg); }
+
+.card-face {
+  position: absolute;
+  inset: 0;
+  border-radius: 16px;
+  backface-visibility: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+}
+
+.card-back {
+  background: linear-gradient(135deg, #1e1e3f, #2a2a5a);
+  border: 2px solid rgba(138, 43, 226, 0.5);
+  box-shadow: 0 0 15px rgba(138, 43, 226, 0.3), inset 0 0 30px rgba(0,0,0,0.3);
+}
+.card-back::before {
+  content: '?';
+  font-size: 3rem;
+  color: rgba(138, 43, 226, 0.6);
+  font-weight: bold;
+}
+.card-back::after {
+  content: '';
+  position: absolute;
+  inset: 4px;
+  border: 1px solid rgba(138, 43, 226, 0.3);
+  border-radius: 12px;
+}
+
+.card-front {
+  background: #fff;
+  transform: rotateY(180deg);
+  box-shadow: 0 0 20px rgba(0,0,0,0.3);
+}
+.card-front img {
+  width: 100%; height: 100%;
+  object-fit: contain;
+  padding: 8px;
+}
+
+/* 配對成功動畫 */
+.card.matched {
+  animation: matchPulse 0.6s ease;
+}
+@keyframes matchPulse {
+  0% { transform: rotateY(180deg) scale(1); }
+  30% { transform: rotateY(180deg) scale(1.15); }
+  60% { transform: rotateY(180deg) scale(0.95); }
+  100% { transform: rotateY(180deg) scale(1); }
+}
+.card.matched .card-front {
+  box-shadow: 0 0 30px rgba(0, 255, 100, 0.6), 0 0 60px rgba(0, 255, 100, 0.3);
+  border: 2px solid rgba(0, 255, 100, 0.5);
+}
+
+/* 錯誤抖動 */
+.card.shake {
+  animation: shake 0.5s ease;
+}
+@keyframes shake {
+  0%, 100% { transform: rotateY(180deg) translateX(0); }
+  20% { transform: rotateY(180deg) translateX(-8px); }
+  40% { transform: rotateY(180deg) translateX(8px); }
+  60% { transform: rotateY(180deg) translateX(-6px); }
+  80% { transform: rotateY(180deg) translateX(6px); }
+}
+
+/* 遮罩 */
+.overlay {
+  position: fixed; inset: 0;
+  background: rgba(0,0,0,0.75);
+  backdrop-filter: blur(8px);
+  display: none;
+  align-items: center;
+  justify-content: center;
+  z-index: 100;
+  animation: fadeIn 0.5s ease;
+}
+.overlay.show { display: flex; }
+@keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+
+.end-box {
+  background: linear-gradient(135deg, #1a1a3e, #2d1b4e);
+  border: 2px solid rgba(138, 43, 226, 0.6);
+  border-radius: 24px;
+  padding: 50px 60px;
+  text-align: center;
+  box-shadow: 0 0 60px rgba(138, 43, 226, 0.4);
+  animation: popIn 0.6s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+@keyframes popIn {
+  from { transform: scale(0.5); opacity: 0; }
+  to { transform: scale(1); opacity: 1; }
+}
+.end-box h2 {
+  color: #fff;
+  font-size: 2.5rem;
+  margin-bottom: 16px;
+}
+.end-box p {
+  color: rgba(255,255,255,0.7);
+  font-size: 1.1rem;
+  margin-bottom: 8px;
+}
+.end-box .final-score {
+  color: #00e5ff;
+  font-size: 3rem;
+  font-weight: bold;
+  text-shadow: 0 0 20px rgba(0,229,255,0.6);
+  margin: 16px 0;
+}
+.end-box .final-time {
+  color: #ff80ab;
+  font-size: 1.4rem;
+  margin-bottom: 30px;
+}
+
+.btn {
+  background: linear-gradient(135deg, #7c3aed, #a855f7);
+  color: #fff;
+  border: none;
+  padding: 14px 40px;
+  font-size: 1.1rem;
+  border-radius: 50px;
+  cursor: pointer;
+  font-weight: 600;
+  letter-spacing: 1px;
+  transition: all 0.3s;
+  box-shadow: 0 4px 20px rgba(124, 58, 237, 0.5);
+}
+.btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 30px rgba(124, 58, 237, 0.7);
+  background: linear-gradient(135deg, #8b5cf6, #c084fc);
+}
+
+/* 烟火 */
+.firework {
+  position: fixed;
+  pointer-events: none;
+  z-index: 200;
+}
+.fw-particle {
+  position: absolute;
+  width: 6px; height: 6px;
+  border-radius: 50%;
+  animation: fwBurst 1s ease-out forwards;
+}
+@keyframes fwBurst {
+  0% { transform: translate(0,0) scale(1); opacity: 1; }
+  100% { transform: translate(var(--tx), var(--ty)) scale(0); opacity: 0; }
+}
+
+/* 開始按鈕 */
+.start-screen {
+  position: fixed; inset: 0;
+  background: rgba(0,0,0,0.8);
+  backdrop-filter: blur(10px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 100;
+}
+.start-box {
+  text-align: center;
+  animation: popIn 0.8s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+.start-box h1 {
+  font-size: 3rem;
+  margin-bottom: 10px;
+}
+.start-box p {
+  color: rgba(255,255,255,0.6);
+  font-size: 1rem;
+  margin-bottom: 30px;
+}
+
+/* 移動設備適配 */
+@media (max-width: 600px) {
+  .board { grid-template-columns: repeat(4, 1fr); gap: 8px; padding: 10px; }
+  .card { width: 80px; height: 100px; }
+  h1 { font-size: 1.5rem; }
+  .scoreboard { gap: 16px; }
+  .stat { padding: 8px 16px; min-width: 100px; }
+  .stat-value { font-size: 1.3rem; }
+}
+</style>
+</head>
+<body>
+
+<!-- 背景粒子 -->
+<div class="particles" id="particles"></div>
+
+<!-- 開始畫面 -->
+<div class="start-screen" id="startScreen">
+  <div class="start-box">
+    <h1>🃏 翻牌配對</h1>
+    <p>找到所有配對，用最少的時間完成！</p>
+    <button class="btn" onclick="startGame()">開始遊戲</button>
+  </div>
+</div>
+
+<!-- 遊戲結束遮罩 -->
+<div class="overlay" id="endOverlay">
+  <div class="end-box">
+    <h2>🎉 恭喜通關！</h2>
+    <p>得分</p>
+    <div class="final-score" id="finalScore">0</div>
+    <p>用時</p>
+    <div class="final-time" id="finalTime">00:00</div>
+    <button class="btn" onclick="restartGame()">再玩一次</button>
+  </div>
+</div>
+
+<h1>🃏 翻牌配對</h1>
+
+<div class="scoreboard">
+  <div class="stat">
+    <div class="stat-label">時間</div>
+    <div class="stat-value" id="timer">00:00</div>
+  </div>
+  <div class="stat">
+    <div class="stat-label">分數</div>
+    <div class="stat-value" id="score">0</div>
+  </div>
+  <div class="stat">
+    <div class="stat-label">配對</div>
+    <div class="stat-value" id="pairs">0 / 4</div>
+  </div>
+</div>
+
+<div class="board" id="board"></div>
+
+<script>
+// 配對設定: a1-b1, a2-b2, a3-b3, a4-b4
+const PAIRS = [
+  ['a1','b1'], ['a2','b2'], ['a3','b3'], ['a4','b4']
+];
+
+let cards = [];
+let flipped = [];
+let matched = new Set();
+let score = 0;
+let timerInterval = null;
+let seconds = 0;
+let gameActive = false;
+let canFlip = true;
+
+// 初始化粒子背景
+function initParticles() {
+  const c = document.getElementById('particles');
+  c.innerHTML = '';
+  const colors = ['rgba(138,43,226,0.4)','rgba(0,200,255,0.4)','rgba(255,100,200,0.3)'];
+  for (let i = 0; i < 30; i++) {
+    const p = document.createElement('div');
+    p.className = 'particle';
+    const s = Math.random()*6+2;
+    p.style.cssText = `
+      width:${s}px;height:${s}px;
+      left:${Math.random()*100}%;
+      background:${colors[i%3]};
+      animation-duration:${Math.random()*8+6}s;
+      animation-delay:${Math.random()*6}s;
+    `;
+    c.appendChild(p);
+  }
+}
+
+// 洗牌
+function shuffle(arr) {
+  for (let i = arr.length-1; i > 0; i--) {
+    const j = Math.floor(Math.random()*(i+1));
+    [arr[i], arr[j]] = [arr[j], arr[i]];
+  }
+  return arr;
+}
+
+// 建立卡片資料
+function buildCards() {
+  cards = [];
+  PAIRS.forEach((pair, idx) => {
+    cards.push({ id: pair[0], pairId: idx, img: `pic/${pair[0]}.png` });
+    cards.push({ id: pair[1], pairId: idx, img: `pic/${pair[1]}.png` });
+  });
+  shuffle(cards);
+}
+
+// 渲染棋盤
+function renderBoard() {
+  const board = document.getElementById('board');
+  board.innerHTML = '';
+  cards.forEach((c, i) => {
+    const el = document.createElement('div');
+    el.className = 'card';
+    el.dataset.index = i;
+    el.innerHTML = `
+      <div class="card-face card-back"></div>
+      <div class="card-face card-front"><img src="${c.img}" alt="${c.id}"></div>
+    `;
+    el.addEventListener('click', () => flipCard(i));
+    board.appendChild(el);
+  });
+}
+
+// 翻牌
+function flipCard(index) {
+  if (!gameActive || !canFlip) return;
+  const el = document.querySelectorAll('.card')[index];
+  if (el.classList.contains('flipped') || el.classList.contains('matched')) return;
+  if (flipped.length >= 2) return;
+
+  el.classList.add('flipped');
+  flipped.push(index);
+
+  if (flipped.length === 2) {
+    canFlip = false;
+    checkMatch();
+  }
+}
+
+// 檢查配對
+function checkMatch() {
+  const [i1, i2] = flipped;
+  const c1 = cards[i1], c2 = cards[i2];
+  const el1 = document.querySelectorAll('.card')[i1];
+  const el2 = document.querySelectorAll('.card')[i2];
+
+  if (c1.pairId === c2.pairId) {
+    // 配對成功
+    setTimeout(() => {
+      el1.classList.add('matched');
+      el2.classList.add('matched');
+      matched.add(c1.pairId);
+      score += 100 + Math.max(0, 50 - seconds); // 時間獎勵
+      updateUI();
+      spawnFirework(el1);
+      spawnFirework(el2);
+      flipped = [];
+      canFlip = true;
+
+      if (matched.size === PAIRS.length) {
+        endGame();
+      }
+    }, 400);
+  } else {
+    // 配對失敗
+    setTimeout(() => {
+      el1.classList.add('shake');
+      el2.classList.add('shake');
+      score = Math.max(0, score - 20);
+      updateUI();
+      setTimeout(() => {
+        el1.classList.remove('flipped', 'shake');
+        el2.classList.remove('flipped', 'shake');
+        flipped = [];
+        canFlip = true;
+      }, 600);
+    }, 700);
+  }
+}
+
+// 更新UI
+function updateUI() {
+  document.getElementById('score').textContent = score;
+  document.getElementById('pairs').textContent = `${matched.size} / ${PAIRS.length}`;
+}
+
+// 計時器
+function startTimer() {
+  seconds = 0;
+  timerInterval = setInterval(() => {
+    seconds++;
+    const m = String(Math.floor(seconds/60)).padStart(2,'0');
+    const s = String(seconds%60).padStart(2,'0');
+    document.getElementById('timer').textContent = `${m}:${s}`;
+  }, 1000);
+}
+
+function stopTimer() {
+  clearInterval(timerInterval);
+}
+
+// 遊戲結束
+function endGame() {
+  gameActive = false;
+  stopTimer();
+  // 時間加分
+  const timeBonus = Math.max(0, 300 - seconds * 2);
+  score += timeBonus;
+  updateUI();
+
+  const m = String(Math.floor(seconds/60)).padStart(2,'0');
+  const s = String(seconds%60).padStart(2,'0');
+  document.getElementById('finalScore').textContent = score;
+  document.getElementById('finalTime').textContent = `${m}:${s}`;
+
+  setTimeout(() => {
+    document.getElementById('endOverlay').classList.add('show');
+  }, 800);
+}
+
+// 煙火特效
+function spawnFirework(el) {
+  const rect = el.getBoundingClientRect();
+  const cx = rect.left + rect.width/2;
+  const cy = rect.top + rect.height/2;
+  const fw = document.createElement('div');
+  fw.className = 'firework';
+  fw.style.left = cx + 'px';
+  fw.style.top = cy + 'px';
+  document.body.appendChild(fw);
+
+  const colors = ['#ff0','#0ff','#f0f','#0f0','#ff80ab','#80d8ff','#b388ff'];
+  for (let i = 0; i < 12; i++) {
+    const p = document.createElement('div');
+    p.className = 'fw-particle';
+    const angle = (Math.PI*2/12)*i;
+    const dist = 40 + Math.random()*30;
+    p.style.cssText = `
+      background:${colors[i%colors.length]};
+      --tx:${Math.cos(angle)*dist}px;
+      --ty:${Math.sin(angle)*dist}px;
+    `;
+    fw.appendChild(p);
+  }
+  setTimeout(() => fw.remove(), 1200);
+}
+
+// 開始遊戲
+function startGame() {
+  document.getElementById('startScreen').style.display = 'none';
+  initGame();
+}
+
+function initGame() {
+  score = 0;
+  matched.clear();
+  flipped = [];
+  gameActive = true;
+  canFlip = true;
+  updateUI();
+  buildCards();
+  renderBoard();
+  startTimer();
+}
+
+function restartGame() {
+  document.getElementById('endOverlay').classList.remove('show');
+  initGame();
+}
+
+initParticles();
+</script>
+</body>
+</html>
