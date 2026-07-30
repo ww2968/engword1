@@ -277,7 +277,26 @@ h1 {
 .start-box p {
   color: rgba(255,255,255,0.6);
   font-size: 1rem;
-  margin-bottom: 30px;
+  margin-bottom: 20px;
+}
+.qr-container {
+  margin-top: 20px;
+  padding: 16px;
+  background: rgba(255,255,255,0.1);
+  border-radius: 16px;
+  border: 1px solid rgba(255,255,255,0.2);
+  display: inline-block;
+}
+.qr-container img {
+  width: 150px;
+  height: 150px;
+  display: block;
+  border-radius: 8px;
+}
+.qr-text {
+  color: rgba(255,255,255,0.8);
+  font-size: 0.85rem;
+  margin-top: 10px;
 }
 
 /* 移動設備適配 */
@@ -302,6 +321,10 @@ h1 {
     <h1>🃏 翻牌配對</h1>
     <p>找到所有配對，用最少的時間完成！</p>
     <button class="btn" onclick="startGame()">開始遊戲</button>
+    <div class="qr-container">
+      <img src="pic/qrcode.png" alt="QR Code">
+      <div class="qr-text">手機掃描 QR Code 開始遊戲</div>
+    </div>
   </div>
 </div>
 
