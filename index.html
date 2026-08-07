@@ -1,583 +1,161 @@
 <!DOCTYPE html>
 <html lang="zh-TW">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>翻牌配對遊戲</title>
-<style>
-* { margin: 0; padding: 0; box-sizing: border-box; }
-
-body {
-  min-height: 100vh;
-  background: linear-gradient(135deg, #0c0c1d 0%, #1a1a3e 50%, #2d1b4e 100%);
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  font-family: 'Segoe UI', sans-serif;
-  overflow: hidden;
-}
-
-/* 背景粒子 */
-.particles {
-  position: fixed; inset: 0;
-  pointer-events: none;
-  overflow: hidden;
-  z-index: 0;
-}
-.particle {
-  position: absolute;
-  border-radius: 50%;
-  animation: float linear infinite;
-  opacity: 0.3;
-}
-@keyframes float {
-  0% { transform: translateY(100vh) scale(0); opacity: 0; }
-  10% { opacity: 0.4; }
-  90% { opacity: 0.4; }
-  100% { transform: translateY(-10vh) scale(1); opacity: 0; }
-}
-
-/* 標題 */
-h1 {
-  color: #fff;
-  font-size: 2.2rem;
-  margin-bottom: 10px;
-  text-shadow: 0 0 20px rgba(138, 43, 226, 0.8), 0 0 40px rgba(138, 43, 226, 0.4);
-  animation: titleGlow 2s ease-in-out infinite alternate;
-  position: relative; z-index: 1;
-}
-@keyframes titleGlow {
-  from { text-shadow: 0 0 20px rgba(138, 43, 226, 0.8), 0 0 40px rgba(138, 43, 226, 0.4); }
-  to { text-shadow: 0 0 30px rgba(255, 100, 255, 1), 0 0 60px rgba(255, 100, 255, 0.6); }
-}
-
-/* 計分板 */
-.scoreboard {
-  display: flex;
-  gap: 40px;
-  margin-bottom: 20px;
-  position: relative; z-index: 1;
-}
-.stat {
-  background: rgba(255,255,255,0.08);
-  backdrop-filter: blur(10px);
-  border: 1px solid rgba(255,255,255,0.15);
-  border-radius: 16px;
-  padding: 12px 28px;
-  text-align: center;
-  min-width: 130px;
-}
-.stat-label {
-  color: rgba(255,255,255,0.6);
-  font-size: 0.85rem;
-  text-transform: uppercase;
-  letter-spacing: 2px;
-  margin-bottom: 4px;
-}
-.stat-value {
-  color: #fff;
-  font-size: 1.8rem;
-  font-weight: 700;
-  text-shadow: 0 0 10px rgba(0,200,255,0.5);
-}
-
-/* 卡片區域 */
-.board {
-  display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: 14px;
-  padding: 20px;
-  position: relative; z-index: 1;
-  perspective: 1000px;
-}
-
-/* 卡片 */
-.card {
-  width: 130px; height: 160px;
-  cursor: pointer;
-  position: relative;
-  transform-style: preserve-3d;
-  transition: transform 0.6s cubic-bezier(0.4, 0, 0.2, 1);
-}
-.card.flipped { transform: rotateY(180deg); }
-
-.card-face {
-  position: absolute;
-  inset: 0;
-  border-radius: 16px;
-  backface-visibility: hidden;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  overflow: hidden;
-}
-
-.card-back {
-  background: linear-gradient(135deg, #1e1e3f, #2a2a5a);
-  border: 2px solid rgba(138, 43, 226, 0.5);
-  box-shadow: 0 0 15px rgba(138, 43, 226, 0.3), inset 0 0 30px rgba(0,0,0,0.3);
-}
-.card-back::before {
-  content: '?';
-  font-size: 3rem;
-  color: rgba(138, 43, 226, 0.6);
-  font-weight: bold;
-}
-.card-back::after {
-  content: '';
-  position: absolute;
-  inset: 4px;
-  border: 1px solid rgba(138, 43, 226, 0.3);
-  border-radius: 12px;
-}
-
-.card-front {
-  background: #fff;
-  transform: rotateY(180deg);
-  box-shadow: 0 0 20px rgba(0,0,0,0.3);
-}
-.card-front img {
-  width: 100%; height: 100%;
-  object-fit: contain;
-  padding: 8px;
-}
-
-/* 配對成功動畫 */
-.card.matched {
-  animation: matchPulse 0.6s ease;
-}
-@keyframes matchPulse {
-  0% { transform: rotateY(180deg) scale(1); }
-  30% { transform: rotateY(180deg) scale(1.15); }
-  60% { transform: rotateY(180deg) scale(0.95); }
-  100% { transform: rotateY(180deg) scale(1); }
-}
-.card.matched .card-front {
-  box-shadow: 0 0 30px rgba(0, 255, 100, 0.6), 0 0 60px rgba(0, 255, 100, 0.3);
-  border: 2px solid rgba(0, 255, 100, 0.5);
-}
-
-/* 錯誤抖動 */
-.card.shake {
-  animation: shake 0.5s ease;
-}
-@keyframes shake {
-  0%, 100% { transform: rotateY(180deg) translateX(0); }
-  20% { transform: rotateY(180deg) translateX(-8px); }
-  40% { transform: rotateY(180deg) translateX(8px); }
-  60% { transform: rotateY(180deg) translateX(-6px); }
-  80% { transform: rotateY(180deg) translateX(6px); }
-}
-
-/* 遮罩 */
-.overlay {
-  position: fixed; inset: 0;
-  background: rgba(0,0,0,0.75);
-  backdrop-filter: blur(8px);
-  display: none;
-  align-items: center;
-  justify-content: center;
-  z-index: 100;
-  animation: fadeIn 0.5s ease;
-}
-.overlay.show { display: flex; }
-@keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
-
-.end-box {
-  background: linear-gradient(135deg, #1a1a3e, #2d1b4e);
-  border: 2px solid rgba(138, 43, 226, 0.6);
-  border-radius: 24px;
-  padding: 50px 60px;
-  text-align: center;
-  box-shadow: 0 0 60px rgba(138, 43, 226, 0.4);
-  animation: popIn 0.6s cubic-bezier(0.175, 0.885, 0.32, 1.275);
-}
-@keyframes popIn {
-  from { transform: scale(0.5); opacity: 0; }
-  to { transform: scale(1); opacity: 1; }
-}
-.end-box h2 {
-  color: #fff;
-  font-size: 2.5rem;
-  margin-bottom: 16px;
-}
-.end-box p {
-  color: rgba(255,255,255,0.7);
-  font-size: 1.1rem;
-  margin-bottom: 8px;
-}
-.end-box .final-score {
-  color: #00e5ff;
-  font-size: 3rem;
-  font-weight: bold;
-  text-shadow: 0 0 20px rgba(0,229,255,0.6);
-  margin: 16px 0;
-}
-.end-box .final-time {
-  color: #ff80ab;
-  font-size: 1.4rem;
-  margin-bottom: 30px;
-}
-
-.btn {
-  background: linear-gradient(135deg, #7c3aed, #a855f7);
-  color: #fff;
-  border: none;
-  padding: 14px 40px;
-  font-size: 1.1rem;
-  border-radius: 50px;
-  cursor: pointer;
-  font-weight: 600;
-  letter-spacing: 1px;
-  transition: all 0.3s;
-  box-shadow: 0 4px 20px rgba(124, 58, 237, 0.5);
-}
-.btn:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 6px 30px rgba(124, 58, 237, 0.7);
-  background: linear-gradient(135deg, #8b5cf6, #c084fc);
-}
-
-/* 烟火 */
-.firework {
-  position: fixed;
-  pointer-events: none;
-  z-index: 200;
-}
-.fw-particle {
-  position: absolute;
-  width: 6px; height: 6px;
-  border-radius: 50%;
-  animation: fwBurst 1s ease-out forwards;
-}
-@keyframes fwBurst {
-  0% { transform: translate(0,0) scale(1); opacity: 1; }
-  100% { transform: translate(var(--tx), var(--ty)) scale(0); opacity: 0; }
-}
-
-/* 開始按鈕 */
-.start-screen {
-  position: fixed; inset: 0;
-  background: rgba(0,0,0,0.8);
-  backdrop-filter: blur(10px);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  z-index: 100;
-}
-.start-box {
-  text-align: center;
-  animation: popIn 0.8s cubic-bezier(0.175, 0.885, 0.32, 1.275);
-}
-.start-box h1 {
-  font-size: 3rem;
-  margin-bottom: 10px;
-}
-.start-box p {
-  color: rgba(255,255,255,0.6);
-  font-size: 1rem;
-  margin-bottom: 20px;
-}
-.qr-container {
-  margin-top: 20px;
-  padding: 16px;
-  background: rgba(255,255,255,0.1);
-  border-radius: 16px;
-  border: 1px solid rgba(255,255,255,0.2);
-  display: inline-block;
-}
-.qr-container img {
-  width: 150px;
-  height: 150px;
-  display: block;
-  border-radius: 8px;
-}
-.qr-text {
-  color: rgba(255,255,255,0.8);
-  font-size: 0.85rem;
-  margin-top: 10px;
-}
-
-/* 移動設備適配 */
-@media (max-width: 600px) {
-  .board { grid-template-columns: repeat(4, 1fr); gap: 8px; padding: 10px; }
-  .card { width: 80px; height: 100px; }
-  h1 { font-size: 1.5rem; }
-  .scoreboard { gap: 16px; }
-  .stat { padding: 8px 16px; min-width: 100px; }
-  .stat-value { font-size: 1.3rem; }
-}
-</style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>單字配對 - 英文單字翻牌配對遊戲</title>
+    <meta name="description" content="精美的 3D 英文單字與圖片配對記憶遊戲，考驗你的記憶力與反應速度！">
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800&family=Plus+Jakarta+Sans:wght@500;700;800&display=swap" rel="stylesheet">
+    <!-- FontAwesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="styles.css">
 </head>
 <body>
+    <!-- Background Animated Blobs -->
+    <div class="bg-blob blob-1"></div>
+    <div class="bg-blob blob-2"></div>
+    <div class="bg-blob blob-3"></div>
 
-<!-- 背景粒子 -->
-<div class="particles" id="particles"></div>
+    <!-- Landing Screen (首頁 / QR Code 進入頁) -->
+    <div id="landing-screen" class="landing-overlay">
+        <div class="landing-card">
+            <div class="landing-logo">
+                <i class="fa-solid fa-brain"></i>
+            </div>
+            <h1 class="landing-title">單字配對遊戲888</h1>
+            <p class="landing-subtitle">請掃描或點擊下方 QR Code 進入遊戲</p>
 
-<!-- 開始畫面 -->
-<div class="start-screen" id="startScreen">
-  <div class="start-box">
-    <h1>🃏 翻牌配對</h1>
-    <p>找到所有配對，用最少的時間完成！</p>
-    <button class="btn" onclick="startGame()">開始遊戲</button>
-    <div class="qr-container">
-      <img src="pic/qrcode.png" alt="QR Code">
-      <div class="qr-text">手機掃描 QR Code 開始遊戲</div>
+            <!-- QR Code Interactive Container -->
+            <div id="qr-container" class="qr-code-wrapper" title="點擊 QR Code 開始遊戲">
+                <div class="qr-glow"></div>
+                <img src="qrcode.png" alt="QR Code" id="landing-qrcode" class="qr-code-img">
+                <div class="qr-hover-overlay">
+                    <i class="fa-solid fa-play"></i>
+                    <span>點擊進入遊戲</span>
+                </div>
+            </div>
+
+            <button id="start-game-btn" class="action-btn primary-btn btn-lg landing-btn">
+                <i class="fa-solid fa-gamepad"></i>
+                <span>點擊開始遊戲</span>
+            </button>
+        </div>
     </div>
-  </div>
-</div>
 
-<!-- 遊戲結束遮罩 -->
-<div class="overlay" id="endOverlay">
-  <div class="end-box">
-    <h2>🎉 恭喜通關！</h2>
-    <p>得分</p>
-    <div class="final-score" id="finalScore">0</div>
-    <p>用時</p>
-    <div class="final-time" id="finalTime">00:00</div>
-    <button class="btn" onclick="restartGame()">再玩一次</button>
-  </div>
-</div>
+    <!-- Main Game Container (遊戲畫面) -->
+    <div class="game-container hidden" id="game-container">
+        <!-- Header Section -->
+        <header class="game-header">
+            <div class="brand">
+                <button id="home-btn" class="action-btn icon-only-btn" title="返回首頁">
+                    <i class="fa-solid fa-house"></i>
+                </button>
+                <div class="logo-icon"><i class="fa-solid fa-brain"></i></div>
+                <div class="title-group">
+                    <h1>單字配對</h1>
+                    <p class="subtitle">英文單字圖片配對遊戲</p>
+                </div>
+            </div>
 
-<h1>🃏 翻牌配對</h1>
+            <!-- Dashboard Stats -->
+            <div class="stats-bar">
+                <div class="stat-card">
+                    <div class="stat-icon timer-icon"><i class="fa-solid fa-stopwatch"></i></div>
+                    <div class="stat-info">
+                        <span class="stat-label">時間</span>
+                        <span class="stat-value" id="timer-display">00:00.0</span>
+                    </div>
+                </div>
 
-<div class="scoreboard">
-  <div class="stat">
-    <div class="stat-label">時間</div>
-    <div class="stat-value" id="timer">00:00</div>
-  </div>
-  <div class="stat">
-    <div class="stat-label">分數</div>
-    <div class="stat-value" id="score">0</div>
-  </div>
-  <div class="stat">
-    <div class="stat-label">配對</div>
-    <div class="stat-value" id="pairs">0 / 4</div>
-  </div>
-</div>
+                <div class="stat-card">
+                    <div class="stat-icon score-icon"><i class="fa-solid fa-trophy"></i></div>
+                    <div class="stat-info">
+                        <span class="stat-label">得分</span>
+                        <span class="stat-value" id="score-display">0</span>
+                    </div>
+                </div>
 
-<div class="board" id="board"></div>
+                <div class="stat-card best-card">
+                    <div class="stat-icon best-icon"><i class="fa-solid fa-star"></i></div>
+                    <div class="stat-info">
+                        <span class="stat-label">最高紀錄</span>
+                        <span class="stat-value" id="best-score-display">0</span>
+                    </div>
+                </div>
+            </div>
 
-<script>
-// 配對設定: a1-b1, a2-b2, a3-b3, a4-b4
-const PAIRS = [
-  ['a1','b1'], ['a2','b2'], ['a3','b3'], ['a4','b4']
-];
+            <!-- Controls -->
+            <div class="header-actions">
+                <button id="sound-btn" class="action-btn" title="切換音效">
+                    <i class="fa-solid fa-volume-high"></i>
+                </button>
+                <button id="restart-btn" class="action-btn primary-btn">
+                    <i class="fa-solid fa-rotate-right"></i>
+                    <span>重玩</span>
+                </button>
+            </div>
+        </header>
 
-let cards = [];
-let flipped = [];
-let matched = new Set();
-let score = 0;
-let timerInterval = null;
-let seconds = 0;
-let gameActive = false;
-let canFlip = true;
+        <!-- Combo & Speed Indicator Banner -->
+        <div class="status-banner">
+            <div id="combo-badge" class="combo-badge hidden">
+                <i class="fa-solid fa-bolt"></i> <span id="combo-text">COMBO x2</span>
+            </div>
+            <div class="hint-text">
+                <i class="fa-solid fa-lightbulb"></i> 翻開英文單字與對應圖片完成配對，越快完成得分越高！
+            </div>
+        </div>
 
-// 初始化粒子背景
-function initParticles() {
-  const c = document.getElementById('particles');
-  c.innerHTML = '';
-  const colors = ['rgba(138,43,226,0.4)','rgba(0,200,255,0.4)','rgba(255,100,200,0.3)'];
-  for (let i = 0; i < 30; i++) {
-    const p = document.createElement('div');
-    p.className = 'particle';
-    const s = Math.random()*6+2;
-    p.style.cssText = `
-      width:${s}px;height:${s}px;
-      left:${Math.random()*100}%;
-      background:${colors[i%3]};
-      animation-duration:${Math.random()*8+6}s;
-      animation-delay:${Math.random()*6}s;
-    `;
-    c.appendChild(p);
-  }
-}
+        <!-- Cards Grid -->
+        <main class="cards-grid" id="cards-grid">
+            <!-- Cards will be dynamically injected here via JS -->
+        </main>
+    </div>
 
-// 洗牌
-function shuffle(arr) {
-  for (let i = arr.length-1; i > 0; i--) {
-    const j = Math.floor(Math.random()*(i+1));
-    [arr[i], arr[j]] = [arr[j], arr[i]];
-  }
-  return arr;
-}
+    <!-- Victory Overlay Modal -->
+    <div id="win-modal" class="modal-backdrop hidden">
+        <div class="modal-card">
+            <div class="modal-sparkles">✨</div>
+            <h2 class="win-title">太棒了！挑戰成功！</h2>
+            <p class="win-subtitle">完美的記憶與超快的反應！</p>
+            
+            <div class="stars-rating" id="stars-container">
+                <i class="fa-solid fa-star star active"></i>
+                <i class="fa-solid fa-star star active"></i>
+                <i class="fa-solid fa-star star active"></i>
+            </div>
 
-// 建立卡片資料
-function buildCards() {
-  cards = [];
-  PAIRS.forEach((pair, idx) => {
-    cards.push({ id: pair[0], pairId: idx, img: `pic/${pair[0]}.png` });
-    cards.push({ id: pair[1], pairId: idx, img: `pic/${pair[1]}.png` });
-  });
-  shuffle(cards);
-}
+            <div class="summary-box">
+                <div class="summary-row">
+                    <span><i class="fa-solid fa-stopwatch"></i> 通關時間</span>
+                    <strong id="final-time">00:12.4</strong>
+                </div>
+                <div class="summary-row">
+                    <span><i class="fa-solid fa-bolt"></i> 速度加分</span>
+                    <strong id="speed-bonus">+150</strong>
+                </div>
+                <div class="summary-row total-row">
+                    <span><i class="fa-solid fa-trophy"></i> 最終總分</span>
+                    <strong id="final-score">850</strong>
+                </div>
+            </div>
 
-// 渲染棋盤
-function renderBoard() {
-  const board = document.getElementById('board');
-  board.innerHTML = '';
-  cards.forEach((c, i) => {
-    const el = document.createElement('div');
-    el.className = 'card';
-    el.dataset.index = i;
-    el.innerHTML = `
-      <div class="card-face card-back"></div>
-      <div class="card-face card-front"><img src="${c.img}" alt="${c.id}"></div>
-    `;
-    el.addEventListener('click', () => flipCard(i));
-    board.appendChild(el);
-  });
-}
+            <div class="modal-actions">
+                <button id="modal-restart-btn" class="action-btn primary-btn btn-lg">
+                    <i class="fa-solid fa-rotate-right"></i>
+                    <span>再玩一次</span>
+                </button>
+            </div>
+        </div>
+    </div>
 
-// 翻牌
-function flipCard(index) {
-  if (!gameActive || !canFlip) return;
-  const el = document.querySelectorAll('.card')[index];
-  if (el.classList.contains('flipped') || el.classList.contains('matched')) return;
-  if (flipped.length >= 2) return;
+    <!-- Canvas for Confetti particle effects -->
+    <canvas id="confetti-canvas"></canvas>
 
-  el.classList.add('flipped');
-  flipped.push(index);
-
-  if (flipped.length === 2) {
-    canFlip = false;
-    checkMatch();
-  }
-}
-
-// 檢查配對
-function checkMatch() {
-  const [i1, i2] = flipped;
-  const c1 = cards[i1], c2 = cards[i2];
-  const el1 = document.querySelectorAll('.card')[i1];
-  const el2 = document.querySelectorAll('.card')[i2];
-
-  if (c1.pairId === c2.pairId) {
-    // 配對成功
-    setTimeout(() => {
-      el1.classList.add('matched');
-      el2.classList.add('matched');
-      matched.add(c1.pairId);
-      score += 100 + Math.max(0, 50 - seconds); // 時間獎勵
-      updateUI();
-      spawnFirework(el1);
-      spawnFirework(el2);
-      flipped = [];
-      canFlip = true;
-
-      if (matched.size === PAIRS.length) {
-        endGame();
-      }
-    }, 400);
-  } else {
-    // 配對失敗
-    setTimeout(() => {
-      el1.classList.add('shake');
-      el2.classList.add('shake');
-      score = Math.max(0, score - 20);
-      updateUI();
-      setTimeout(() => {
-        el1.classList.remove('flipped', 'shake');
-        el2.classList.remove('flipped', 'shake');
-        flipped = [];
-        canFlip = true;
-      }, 600);
-    }, 700);
-  }
-}
-
-// 更新UI
-function updateUI() {
-  document.getElementById('score').textContent = score;
-  document.getElementById('pairs').textContent = `${matched.size} / ${PAIRS.length}`;
-}
-
-// 計時器
-function startTimer() {
-  seconds = 0;
-  timerInterval = setInterval(() => {
-    seconds++;
-    const m = String(Math.floor(seconds/60)).padStart(2,'0');
-    const s = String(seconds%60).padStart(2,'0');
-    document.getElementById('timer').textContent = `${m}:${s}`;
-  }, 1000);
-}
-
-function stopTimer() {
-  clearInterval(timerInterval);
-}
-
-// 遊戲結束
-function endGame() {
-  gameActive = false;
-  stopTimer();
-  // 時間加分
-  const timeBonus = Math.max(0, 300 - seconds * 2);
-  score += timeBonus;
-  updateUI();
-
-  const m = String(Math.floor(seconds/60)).padStart(2,'0');
-  const s = String(seconds%60).padStart(2,'0');
-  document.getElementById('finalScore').textContent = score;
-  document.getElementById('finalTime').textContent = `${m}:${s}`;
-
-  setTimeout(() => {
-    document.getElementById('endOverlay').classList.add('show');
-  }, 800);
-}
-
-// 煙火特效
-function spawnFirework(el) {
-  const rect = el.getBoundingClientRect();
-  const cx = rect.left + rect.width/2;
-  const cy = rect.top + rect.height/2;
-  const fw = document.createElement('div');
-  fw.className = 'firework';
-  fw.style.left = cx + 'px';
-  fw.style.top = cy + 'px';
-  document.body.appendChild(fw);
-
-  const colors = ['#ff0','#0ff','#f0f','#0f0','#ff80ab','#80d8ff','#b388ff'];
-  for (let i = 0; i < 12; i++) {
-    const p = document.createElement('div');
-    p.className = 'fw-particle';
-    const angle = (Math.PI*2/12)*i;
-    const dist = 40 + Math.random()*30;
-    p.style.cssText = `
-      background:${colors[i%colors.length]};
-      --tx:${Math.cos(angle)*dist}px;
-      --ty:${Math.sin(angle)*dist}px;
-    `;
-    fw.appendChild(p);
-  }
-  setTimeout(() => fw.remove(), 1200);
-}
-
-// 開始遊戲
-function startGame() {
-  document.getElementById('startScreen').style.display = 'none';
-  initGame();
-}
-
-function initGame() {
-  score = 0;
-  matched.clear();
-  flipped = [];
-  gameActive = true;
-  canFlip = true;
-  updateUI();
-  buildCards();
-  renderBoard();
-  startTimer();
-}
-
-function restartGame() {
-  document.getElementById('endOverlay').classList.remove('show');
-  initGame();
-}
-
-initParticles();
-</script>
+    <!-- JS Logic -->
+    <script src="app.js"></script>
 </body>
 </html>
